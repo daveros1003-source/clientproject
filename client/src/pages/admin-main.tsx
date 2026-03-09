@@ -384,12 +384,19 @@ const AdminMain: React.FC = () => {
   const profit = stats.totalIncome - totalExpenses;
 
   const [chartData, setChartData] = useState<Array<{ date: string; income: number; expenses: number }>>([]);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
+  const [staffPerformance, setStaffPerformance] = useState<any[]>([]);
 
   const loadChartData = async () => {
     try {
       const sales = await db.sales.toArray();
       const allExpenses = await db.expenses.toArray();
+      const allSaleItems = await db.saleItems.toArray();
+      const allProducts = await db.products.toArray();
+      const allStaff = await db.staff.toArray();
 
+      // Chart Data (Last 7 Days)
       const days = Array.from({ length: 7 }).map((_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - (6 - i));
@@ -419,6 +426,55 @@ const AdminMain: React.FC = () => {
       });
 
       setChartData(data);
+
+      // Recent Transactions
+      const staffMap = new Map(allStaff.map(s => [s.staffId, s.name]));
+      const recent = sales
+        .sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime())
+        .slice(0, 5)
+        .map(s => ({
+          ...s,
+          staffName: s.staffId ? staffMap.get(s.staffId) : 'Owner'
+        }));
+      setRecentTransactions(recent);
+
+      // Top Selling Products
+      const productSales = new Map();
+      allSaleItems.forEach(item => {
+        const current = productSales.get(item.productId) || 0;
+        productSales.set(item.productId, current + item.quantity);
+      });
+
+      const top = allProducts
+        .map(p => ({
+          name: p.name,
+          sales: productSales.get(p.id) || 0,
+          price: p.price
+        }))
+        .filter(p => p.sales > 0)
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 5);
+      setTopProducts(top);
+
+      // Staff Performance
+      const staffSales = new Map();
+      sales.forEach(s => {
+        const sid = s.staffId || 'owner';
+        const current = staffSales.get(sid) || 0;
+        staffSales.set(sid, current + (s.total || 0));
+      });
+
+      const perf = [
+        { name: 'Owner', sales: staffSales.get('owner') || 0 },
+        ...allStaff.map(s => ({
+          name: s.name,
+          sales: staffSales.get(s.staffId) || 0
+        }))
+      ]
+      .filter(p => p.sales > 0)
+      .sort((a, b) => b.sales - a.sales);
+      setStaffPerformance(perf);
+
     } catch (error) {
       console.error('Failed to load chart data', error);
     }
@@ -719,6 +775,137 @@ const AdminMain: React.FC = () => {
               ))}
             </motion.div>
           </div>
+
+          {/* New Sections: Top Products & Recent Transactions & Staff Performance */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Top Selling Products */}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 1.3 }}
+              className="modern-card p-10"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xl font-black text-gray-900 tracking-tighter">Top Products</h2>
+                <div className="text-[10px] font-black text-[#BF953F] uppercase tracking-widest">Quantity</div>
+              </div>
+              <div className="space-y-6">
+                {topProducts.length === 0 ? (
+                  <div className="text-center py-10 text-gray-400 text-sm italic">No product sales data available</div>
+                ) : (
+                  topProducts.map((product, i) => (
+                    <div key={product.name} className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-bold text-gray-800">{product.name}</span>
+                        <span className="text-xs font-black text-[#BF953F]">{product.sales} sold</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-50 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, (product.sales / (topProducts[0]?.sales || 1)) * 100)}%` }}
+                          transition={{ delay: 1.5 + i * 0.1, duration: 1 }}
+                          className="h-full bg-gradient-to-r from-[#BF953F] to-[#B38728] rounded-full"
+                        ></motion.div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+
+            {/* Recent Activity */}
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 1.4 }}
+              className="lg:col-span-2 modern-card p-10"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xl font-black text-gray-900 tracking-tighter">Recent Transactions</h2>
+                <button 
+                  onClick={() => setLocation('/transaction-history')}
+                  className="text-[10px] font-black text-[#BF953F] uppercase tracking-widest hover:underline"
+                >
+                  View All Transactions
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-gray-50">
+                      <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Order ID</th>
+                      <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Processed By</th>
+                      <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Payment</th>
+                      <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {recentTransactions.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-10 text-center text-gray-400 text-sm italic">No recent transactions</td>
+                      </tr>
+                    ) : (
+                      recentTransactions.map((tx) => (
+                        <tr key={tx.id} className="group hover:bg-gray-50/50 transition-colors">
+                          <td className="py-4 text-xs font-bold text-gray-900">#{String(tx.id).substring(0, 8)}</td>
+                          <td className="py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-[#BF953F]/10 flex items-center justify-center">
+                                <User className="w-3 h-3 text-[#BF953F]" />
+                              </div>
+                              <span className="text-xs font-bold text-gray-700">{tx.staffName}</span>
+                            </div>
+                          </td>
+                          <td className="py-4">
+                            <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-tighter ${
+                              tx.paymentType === 'cash' ? 'bg-emerald-50 text-emerald-600' :
+                              tx.paymentType === 'ewallet' ? 'bg-blue-50 text-blue-600' :
+                              'bg-amber-50 text-amber-600'
+                            }`}>
+                              {tx.paymentType}
+                            </span>
+                          </td>
+                          <td className="py-4 text-right text-xs font-black text-gray-900">₱{tx.total.toFixed(2)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Staff Performance Section */}
+          {staffPerformance.length > 0 && (
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 1.5 }}
+              className="modern-card p-10"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-xl font-black text-gray-900 tracking-tighter">Team Performance</h2>
+                <div className="text-[10px] font-black text-[#BF953F] uppercase tracking-widest">Contribution by Sales</div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {staffPerformance.map((staff, i) => (
+                  <div key={staff.name} className="relative p-6 bg-gray-50 rounded-2xl border border-transparent hover:border-[#BF953F]/20 transition-all">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm">
+                        <User className="w-5 h-5 text-[#BF953F]" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black uppercase tracking-tighter text-gray-900">{staff.name}</div>
+                        <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Active Member</div>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-black text-gray-900 tracking-tighter mb-1">₱{staff.sales.toLocaleString()}</div>
+                    <div className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Total Sales Generated</div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Floating Action Button */}
