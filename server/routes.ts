@@ -513,11 +513,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const host = xHost || req.get('host') || `localhost:5000`;
 
       // If we're on Render, we can use the RENDER_EXTERNAL_URL
+      // Otherwise, we build the origin from the request headers
       let origin = process.env.RENDER_EXTERNAL_URL || `${protocol}://${host}`;
       
-      // Safety check: if the origin is just a hostname, add protocol
+      // If the origin is purely a hostname, prepend the protocol
       if (origin && !origin.startsWith('http')) {
         origin = `https://${origin}`;
+      }
+      
+      // Ensure the origin is the absolute Render URL if it exists
+      if (process.env.RENDER_EXTERNAL_URL && !origin.includes('onrender.com')) {
+        origin = process.env.RENDER_EXTERNAL_URL;
       }
       
       res.status(200).json({ origin });

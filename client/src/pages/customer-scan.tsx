@@ -97,12 +97,16 @@ const CustomerScan: React.FC = () => {
       }
 
       // Handle Netlify WebSocket proxy limitation
-      if (window.location.hostname.includes('netlify.app') && socketUrl.includes('netlify.app')) {
+      if (window.location.hostname.includes('netlify.app')) {
         socketUrl = 'https://smartposv4.onrender.com';
       }
 
       socketRef.current = io(socketUrl, {
-        transports: ['websocket', 'polling']
+        transports: ['polling', 'websocket'],
+        reconnection: true,
+        reconnectionAttempts: 20,
+        timeout: 45000,
+        autoConnect: true
       });
       
       // Listen for inventory updates

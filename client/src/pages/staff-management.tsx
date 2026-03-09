@@ -135,7 +135,7 @@ const StaffManagement: React.FC = () => {
 
         // If on Netlify, prioritize a direct connection to the backend to avoid proxy issues
         // (Netlify redirects do not support WebSockets)
-        if (window.location.hostname.includes('netlify.app') && socketUrl.includes('netlify.app')) {
+        if (window.location.hostname.includes('netlify.app')) {
           socketUrl = 'https://smartposv4.onrender.com';
         }
 
@@ -144,11 +144,12 @@ const StaffManagement: React.FC = () => {
             token: localStorage.getItem('userToken') || '',
             businessId: user?.id || ''
           },
-          transports: ['websocket', 'polling'],
+          transports: ['polling', 'websocket'], // Force polling first for better reliability
           reconnection: true,
-          reconnectionAttempts: 10,
+          reconnectionAttempts: 20,
           reconnectionDelay: 1000,
-          timeout: 20000
+          timeout: 45000, // Increase timeout for slower connections
+          autoConnect: true
         });
         
         setServerInfoState(socketUrl);

@@ -51,15 +51,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
 
         // Handle Netlify WebSocket proxy limitation
-        if (window.location.hostname.includes('netlify.app') && socketUrl.includes('netlify.app')) {
+        if (window.location.hostname.includes('netlify.app')) {
           socketUrl = 'https://smartposv4.onrender.com';
         }
 
         const newSocket = io(socketUrl, {
-          transports: ['websocket', 'polling'],
+          transports: ['polling', 'websocket'],
           reconnection: true,
-          reconnectionAttempts: 10,
+          reconnectionAttempts: 20,
           reconnectionDelay: 1000,
+          timeout: 45000,
+          autoConnect: true
         });
         setSocket(newSocket);
 
