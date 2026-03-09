@@ -29,7 +29,7 @@ export default defineConfig(async () => ({
   },
   root: "client",
   build: {
-    outDir: "../dist/public",
+    outDir: "../dist",
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
