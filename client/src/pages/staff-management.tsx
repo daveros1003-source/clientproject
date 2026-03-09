@@ -121,8 +121,24 @@ const StaffManagement: React.FC = () => {
 
     const init = async () => {
       try {
-        // First try connecting to the current origin or configured backend URL
-        const socketUrl = (import.meta as any).env?.VITE_BACKEND_URL || window.location.origin;
+        // Fetch server info to discover the real backend URL
+        let socketUrl = window.location.origin;
+        try {
+          const res = await fetch('/api/server-info');
+          if (res.ok) {
+            const data = await res.json();
+            socketUrl = data.origin;
+          }
+        } catch (e) {
+          console.warn('Failed to fetch server info, falling back to current origin');
+        }
+
+        // If on Netlify, prioritize a direct connection to the backend to avoid proxy issues
+        // (Netlify redirects do not support WebSockets)
+        if (window.location.hostname.includes('netlify.app') && socketUrl.includes('netlify.app')) {
+          socketUrl = 'https://smartposv4.onrender.com';
+        }
+
         socketInstance = io(socketUrl, {
           auth: {
             token: localStorage.getItem('userToken') || '',

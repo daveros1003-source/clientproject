@@ -512,8 +512,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const protocol = xProto || req.protocol || 'http';
       const host = xHost || req.get('host') || `localhost:5000`;
 
-      // If we're behind a proxy (like fly.dev or Builder), the origin should match the external URL
-      const origin = `${protocol}://${host}`;
+      // If we're on Render, we can use the RENDER_EXTERNAL_URL
+      let origin = process.env.RENDER_EXTERNAL_URL || `${protocol}://${host}`;
+      
+      // Safety check: if the origin is just a hostname, add protocol
+      if (origin && !origin.startsWith('http')) {
+        origin = `https://${origin}`;
+      }
+      
       res.status(200).json({ origin });
     } catch (error) {
       console.error('Error getting server info:', error);

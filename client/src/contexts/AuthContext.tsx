@@ -45,9 +45,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (cancelled) return;
 
         // If data.origin says localhost but we're on a public URL, it's a proxy mismatch
-        let socketUrl = (import.meta as any).env?.VITE_BACKEND_URL || data.origin;
+        let socketUrl = data.origin;
         if (typeof window !== 'undefined' && socketUrl.includes('localhost') && !window.location.hostname.includes('localhost')) {
           socketUrl = window.location.origin;
+        }
+
+        // Handle Netlify WebSocket proxy limitation
+        if (window.location.hostname.includes('netlify.app') && socketUrl.includes('netlify.app')) {
+          socketUrl = 'https://smartposv4.onrender.com';
         }
 
         const newSocket = io(socketUrl, {
@@ -66,7 +71,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } catch (error) {
         // Fallback to origin (best-effort) if server-info not available
         try {
-          const socketUrl = (import.meta as any).env?.VITE_BACKEND_URL || window.location.origin;
+          let socketUrl = window.location.origin;
+          if (window.location.hostname.includes('netlify.app')) {
+            socketUrl = 'https://smartposv4.onrender.com';
+          }
           const newSocket = io(socketUrl, { reconnection: true });
           if (!cancelled) setSocket(newSocket);
         } catch (e) {

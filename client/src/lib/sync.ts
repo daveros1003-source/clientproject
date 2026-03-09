@@ -24,9 +24,8 @@ export class DatabaseSyncService {
   private isSyncing: boolean = false;
 
   constructor(baseUrl: string = '') {
-    // Default to VITE_BACKEND_URL or current origin if no baseUrl provided
-    const defaultUrl = (import.meta as any).env?.VITE_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-    this.baseUrl = baseUrl || defaultUrl;
+    // Default to current origin if no baseUrl provided
+    this.baseUrl = baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
     
     // Try to load last sync timestamp from localStorage
     if (typeof window !== 'undefined') {

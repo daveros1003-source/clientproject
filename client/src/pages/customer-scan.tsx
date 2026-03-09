@@ -84,21 +84,39 @@ const CustomerScan: React.FC = () => {
   
   // Connect to socket for real-time inventory updates
   useEffect(() => {
-    // Connect to socket.io server using the configured backend URL or current origin
-    const socketUrl = (import.meta as any).env?.VITE_BACKEND_URL || window.location.origin;
-    socketRef.current = io(socketUrl);
-    
-    // Listen for inventory updates
-    socketRef.current.on('inventory-update', () => {
-      setInventoryUpdated(true);
-      // If product is currently displayed, refresh it
-      if (product && showProduct) {
-        lookupProduct(product.barcode);
+    const initSocket = async () => {
+      let socketUrl = window.location.origin;
+      try {
+        const res = await fetch('/api/server-info');
+        if (res.ok) {
+          const data = await res.json();
+          socketUrl = data.origin;
+        }
+      } catch (e) {
+        console.warn('Failed to fetch server info');
       }
-    });
+
+      // Handle Netlify WebSocket proxy limitation
+      if (window.location.hostname.includes('netlify.app') && socketUrl.includes('netlify.app')) {
+        socketUrl = 'https://smartposv4.onrender.com';
+      }
+
+      socketRef.current = io(socketUrl, {
+        transports: ['websocket', 'polling']
+      });
+      
+      // Listen for inventory updates
+      socketRef.current.on('inventory-update', () => {
+        setInventoryUpdated(true);
+        if (product && showProduct) {
+          lookupProduct(product.barcode);
+        }
+      });
+    };
+
+    initSocket();
     
     return () => {
-      // Clean up socket connection
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
