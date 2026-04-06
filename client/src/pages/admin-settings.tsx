@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import api from '@/lib/api';
 
 type ReceiptSettings = {
   storeName: string;
@@ -50,16 +51,13 @@ export default function AdminSettings() {
     let mounted = true;
     (async () => {
       try {
-        const r = await fetch('/api/settings');
-        if (r.ok) {
-          const data: SettingsResponse = await r.json();
-          const merged: ReceiptSettings = {
-            ...defaultReceiptSettings,
-            ...(data.receipt || {}),
-          };
-          if (mounted) {
-            setReceiptSettings(merged);
-          }
+        const data: SettingsResponse = await api.get('/api/settings');
+        const merged: ReceiptSettings = {
+          ...defaultReceiptSettings,
+          ...(data.receipt || {}),
+        };
+        if (mounted) {
+          setReceiptSettings(merged);
         }
       } catch {
       } finally {
@@ -76,14 +74,7 @@ export default function AdminSettings() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receipt: receiptSettings }),
-      });
-      if (!res.ok) {
-        throw new Error('Failed to save settings');
-      }
+      await api.put('/api/settings', { receipt: receiptSettings });
       toast({
         title: 'Settings Saved',
         description: 'Receipt settings have been updated.',
@@ -101,14 +92,7 @@ export default function AdminSettings() {
 
   const handleTestPrint = async () => {
     try {
-      const res = await fetch('/api/print/test-receipt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) {
-        throw new Error('Printer is not configured or test failed');
-      }
+      await api.post('/api/print/test-receipt', {});
       toast({
         title: 'Test Receipt Sent',
         description: 'Check your connected printer for the test receipt.',

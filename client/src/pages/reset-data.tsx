@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/db';
+import api from '@/lib/api';
 
 export default function ResetDataPage() {
   const { toast } = useToast();
@@ -22,20 +23,10 @@ export default function ResetDataPage() {
         toast({ title: 'Local data cleared', description: 'IndexedDB (users, products, sales, staff, etc.) wiped.' });
 
         // Clear server database
-        const res = await fetch('/api/admin/clear', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ confirm: 'CLEAR_ALL' })
-        });
+        const data = await api.post('/api/admin/clear', { confirm: 'CLEAR_ALL' });
 
-        if (res.ok) {
-          const data = await res.json();
-          setServerCleared({ productsDeleted: data.productsDeleted ?? 0, staffDeleted: data.staffDeleted ?? 0 });
-          toast({ title: 'Server data cleared', description: `Products: ${data.productsDeleted ?? 0}, Staff: ${data.staffDeleted ?? 0}` });
-        } else {
-          const text = await res.text();
-          setError(`Server clear failed: ${text}`);
-        }
+        setServerCleared({ productsDeleted: data.productsDeleted ?? 0, staffDeleted: data.staffDeleted ?? 0 });
+        toast({ title: 'Server data cleared', description: `Products: ${data.productsDeleted ?? 0}, Staff: ${data.staffDeleted ?? 0}` });
       } catch (e: any) {
         console.error('Error clearing data:', e);
         setError(e?.message || 'Unknown error');

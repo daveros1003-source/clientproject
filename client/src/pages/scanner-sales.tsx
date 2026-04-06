@@ -15,6 +15,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { ProductService, SalesService, AuthService, db, CreditorService } from '@/lib/db';
 import type { CartItem } from '@shared/schema';
+import api from '@/lib/api';
 
 // Local interfaces for Product and Variant
 interface Product {
@@ -101,15 +102,12 @@ const ScannerSales: React.FC = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await fetch('/api/settings');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.externalScanner) {
-            setScannerSettings({
-              enabled: data.externalScanner.enabled !== false,
-              timeout: data.externalScanner.timeout || 150
-            });
-          }
+        const data = await api.get('/api/settings');
+        if (data.externalScanner) {
+          setScannerSettings({
+            enabled: data.externalScanner.enabled !== false,
+            timeout: data.externalScanner.timeout || 150
+          });
         }
       } catch (err) {
         console.error('Failed to load scanner settings', err);
@@ -522,18 +520,14 @@ const ScannerSales: React.FC = () => {
 
       if (paymentType !== 'credits') {
         try {
-          await fetch('/api/print/sale', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              items: cart,
-              total,
-              paymentType,
-              paymentAmount: effectivePaymentAmount,
-              change,
-              staffName: user?.name || null,
-              createdAt: sale?.createdAt || new Date().toISOString(),
-            }),
+          await api.post('/api/print/sale', {
+            items: cart,
+            total,
+            paymentType,
+            paymentAmount: effectivePaymentAmount,
+            change,
+            staffName: user?.name || null,
+            createdAt: sale?.createdAt || new Date().toISOString(),
           });
         } catch (e) {
           console.error('Failed to send receipt to printer:', e);

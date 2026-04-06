@@ -4,6 +4,7 @@ import type {
     User, Product, Sale, Staff, CartItem, SaleItem, Expense, Purchase, Creditor, Variant
 } from '@shared/schema';
 import { getUnitMultiplier } from './utils';
+import api from './api';
 
 // Helper function for generating UUIDs in browser environment
 function generateUUID() {
@@ -248,12 +249,7 @@ export class AuthService {
 
     // Attempt to push to server immediately
     try {
-      const url = typeof window !== 'undefined' ? window.location.origin : '';
-      fetch(`${url}/api/staff`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify([staff])
-      }).catch(err => console.warn('Background staff sync failed:', err));
+      api.post('/api/staff', [staff]).catch(err => console.warn('Background staff sync failed:', err));
     } catch (e) {
       // Ignore sync errors during creation, local save is priority
     }
@@ -318,35 +314,8 @@ export class ProductService {
         const chunk = formattedProducts.slice(i, i + CHUNK_SIZE);
         
         try {
-          const origin = typeof window !== 'undefined' ? window.location.origin : '';
-          const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-          const primaryUrl = `${origin}/api/products`;
-          const fallbackUrl = `http://${host}:5000/api/products`;
-
-          let res = await fetch(primaryUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(chunk),
-          });
-
-          if (!res.ok) {
-            try {
-              res = await fetch(fallbackUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(chunk),
-              });
-            } catch {}
-            if (!res.ok) {
-              const errorText = await res.text();
-              console.error(`Product sync failed for chunk ${i}-${i+chunk.length}:`, errorText);
-              allSuccess = false;
-            } else {
-              console.log(`Successfully synced products ${i+1}-${i+chunk.length} of ${formattedProducts.length}`);
-            }
-          } else {
-            console.log(`Successfully synced products ${i+1}-${i+chunk.length} of ${formattedProducts.length}`);
-          }
+          await api.post('/api/products', chunk);
+          console.log(`Successfully synced products ${i+1}-${i+chunk.length} of ${formattedProducts.length}`);
         } catch (error) {
           console.error(`Network error syncing chunk ${i}-${i+chunk.length}:`, error);
           allSuccess = false;
@@ -395,29 +364,7 @@ export class ProductService {
         const chunk = formattedVariants.slice(i, i + CHUNK_SIZE);
         
         try {
-          const origin = typeof window !== 'undefined' ? window.location.origin : '';
-          const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-          const primaryUrl = `${origin}/api/variants`;
-          const fallbackUrl = `http://${host}:5000/api/variants`;
-
-          let res = await fetch(primaryUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(chunk),
-          });
-
-          if (!res.ok) {
-            try {
-              res = await fetch(fallbackUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(chunk),
-              });
-            } catch {}
-            if (!res.ok) {
-              allSuccess = false;
-            }
-          }
+          await api.post('/api/variants', chunk);
         } catch (error) {
           allSuccess = false;
         }

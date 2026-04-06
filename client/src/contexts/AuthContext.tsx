@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import type { User } from '@shared/schema';
 import { io, Socket } from 'socket.io-client';
 import { useToast } from '@/hooks/use-toast';
+import api from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -39,9 +40,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/server-info');
-        if (!res.ok) throw new Error('No server info');
-        const data = await res.json();
+        const data = await api.get('/api/server-info');
         if (cancelled) return;
 
         // If data.origin says localhost but we're on a public URL, it's a proxy mismatch
@@ -96,13 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (storedToken) {
       setToken(storedToken);
       // Verify token with server
-      fetch('/api/auth/session', {
-        headers: { 'Authorization': `Bearer ${storedToken}` }
-      })
-      .then(res => {
-        if (res.ok) return res.json();
-        throw new Error('Invalid session');
-      })
+      api.get('/api/auth/session')
       .then(data => {
         setUser(data.user);
       })
@@ -169,22 +162,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginStaff = async (staffId: string, passkey: string) => {
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          staffId, 
-          passkey, 
-          deviceInfo: navigator.userAgent 
-        })
+      const data = await api.post('/api/auth/login', { 
+        staffId, 
+        passkey, 
+        deviceInfo: navigator.userAgent 
       });
       
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Login failed');
-      }
-      
-      const data = await res.json();
       login(data.user, data.token);
     } catch (error) {
       console.error('Staff login error:', error);
@@ -198,10 +181,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     if (token) {
-      fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      }).catch(console.error);
+      api.post('/api/auth/logout', {}).catch(console.error);
     }
     setUser(null);
     setToken(null);

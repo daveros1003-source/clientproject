@@ -1,5 +1,6 @@
 import { db } from './db';
 import type { Product, Variant } from '@shared/schema';
+import api from './api';
 
 interface SyncResponse {
   products: Product[];
@@ -99,89 +100,61 @@ export class DatabaseSyncService {
    * Sync products from the server
    */
   private async syncProducts(): Promise<void> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-    const response = await fetch(`${this.baseUrl}/api/sync`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      const data: SyncResponse = await api.post('/api/sync', {
         lastSyncTimestamp: this.lastSyncTimestamp,
-      }),
-      signal: controller.signal,
-    });
+      });
+      
+      if (!data || typeof data !== 'object' || !Array.isArray(data.products)) {
+        throw new Error('Invalid products data received from server');
+      }
+      
+      // Update local database with received data
+      await this.updateLocalDatabase(data.products);
+      
+      // Update variants if available
+      if (data.variants && Array.isArray(data.variants)) {
+        await this.updateLocalVariantsDatabase(data.variants);
+      }
+      
+      // Update last sync timestamp
+      this.lastSyncTimestamp = data.timestamp;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lastSyncTimestamp', data.timestamp);
+      }
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`Sync failed: ${response.status} ${response.statusText}`);
+      console.log(`Products sync: Updated ${data.products.length} products.`);
+    } catch (error) {
+      console.error('Products sync error:', error);
+      throw error;
     }
-
-    const data: SyncResponse = await response.json();
-    
-    if (!data || typeof data !== 'object' || !Array.isArray(data.products)) {
-      throw new Error('Invalid products data received from server');
-    }
-    
-    // Update local database with received data
-    await this.updateLocalDatabase(data.products);
-    
-    // Update variants if available
-    if (data.variants && Array.isArray(data.variants)) {
-      await this.updateLocalVariantsDatabase(data.variants);
-    }
-    
-    // Update last sync timestamp
-    this.lastSyncTimestamp = data.timestamp;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('lastSyncTimestamp', data.timestamp);
-    }
-
-    console.log(`Products sync: Updated ${data.products.length} products.`);
   }
 
   /**
    * Sync staff accounts from the server
    */
   private async syncStaff(): Promise<void> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    const response = await fetch(`${this.baseUrl}/api/sync-staff`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      const data: StaffSyncResponse = await api.post('/api/sync-staff', {
         lastSyncTimestamp: localStorage.getItem('lastStaffSyncTimestamp'),
-      }),
-      signal: controller.signal,
-    });
+      });
+      
+      if (!data || typeof data !== 'object' || !Array.isArray(data.staff)) {
+        console.warn('Invalid staff data received from server');
+        return;
+      }
+      
+      // Update local database with staff data
+      await this.updateLocalStaffDatabase(data.staff);
+      
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lastStaffSyncTimestamp', data.timestamp);
+      }
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.warn(`Staff sync failed: ${response.status}`);
-      return; // Don't throw, just log the warning
+      console.log(`Staff sync: Updated ${data.staff.length} staff accounts.`);
+    } catch (error) {
+      console.warn(`Staff sync failed:`, error);
     }
-
-    const data: StaffSyncResponse = await response.json();
-    
-    if (!data || typeof data !== 'object' || !Array.isArray(data.staff)) {
-      console.warn('Invalid staff data received from server');
-      return;
-    }
-    
-    // Update local database with staff data
-    await this.updateLocalStaffDatabase(data.staff);
-    
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('lastStaffSyncTimestamp', data.timestamp);
-    }
-
-    console.log(`Staff sync: Updated ${data.staff.length} staff accounts.`);
   }
 
   /**
@@ -222,11 +195,6 @@ export class DatabaseSyncService {
       throw new Error('Invalid barcode provided');
     }
 
-    if (!this.baseUrl) {
-      console.error('Base URL not set for sync service');
-      throw new Error('Base URL not configured for sync service');
-    }
-
     try {
       // First try to get from local database
       const localProduct = await db.products.where('barcode').equals(barcode.trim()).first();
@@ -234,52 +202,12 @@ export class DatabaseSyncService {
         return localProduct;
       }
 
-      // If not found locally, try to get from server with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-      const response = await fetch(`${this.baseUrl}/api/products/${encodeURIComponent(barcode.trim())}`, {
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null; // Product not found
-        } else if (response.status === 500) {
-          throw new Error('Server error occurred while fetching product');
-        } else {
-          throw new Error(`Failed to fetch product: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      const product: Product = await response.json();
-      
-      if (!product || typeof product !== 'object' || !product.id) {
-        throw new Error('Invalid product data received from server');
-      }
-      
-      // Add the product to local database
-      await db.products.put(product);
-      
+      // If not found locally, try to get from server
+      const product = await api.get(`/api/products/${encodeURIComponent(barcode.trim())}`);
       return product;
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          console.error('Product fetch request timed out');
-          throw new Error('Request timed out. Please check your connection.');
-        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-          console.error('Network error during product fetch:', error);
-          throw new Error('Network error. Please check your internet connection.');
-        } else {
-          console.error('Error fetching product by barcode:', error);
-          throw error;
-        }
-      } else {
-        console.error('Unknown error fetching product by barcode:', error);
-        throw new Error('An unknown error occurred while fetching product');
-      }
+      console.error('Error fetching product by barcode:', error);
+      return null;
     }
   }
 
@@ -287,37 +215,11 @@ export class DatabaseSyncService {
    * Check if the server is reachable
    */
   async checkServerConnection(): Promise<boolean> {
-    if (!this.baseUrl) {
-      return false;
-    }
-
     try {
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-      const response = await fetch(`${this.baseUrl}/api/health`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      return response.ok;
+      await api.get('/api/health');
+      return true;
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          console.error('Health check request timed out');
-        } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
-          console.error('Network error during health check:', error);
-        } else {
-          console.error('Error checking server connection:', error);
-        }
-      } else {
-        console.error('Unknown error checking server connection:', error);
-      }
+      console.error('Error checking server connection:', error);
       return false;
     }
   }

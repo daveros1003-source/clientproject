@@ -18,8 +18,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
 
   // Enable CORS for all routes
-  app.use(cors());
+  app.use(cors({
+    origin: ["https://smartposversion2.netlify.app", "http://localhost:5000", "http://localhost:3000"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+  }));
   app.use(express.json());
+
+  // Health check for Render
+  app.get("/", (req, res) => {
+    res.send("SmartPOS+ Backend is Running...");
+  });
+
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
 
   const allowLocalNetwork: (req: Request, res: Response, next: NextFunction) => void = (req, res, next) => {
     // Prefer X-Forwarded-For when present (proxies), otherwise use socket remote address
@@ -964,9 +977,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Socket.IO Setup
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
+      origin: ["https://smartposversion2.netlify.app", "http://localhost:5000", "http://localhost:3000"],
+      methods: ["GET", "POST"],
+      credentials: true
+    },
+    transports: ["polling", "websocket"],
+    pingTimeout: 60000,
+    pingInterval: 25000
   });
 
   // Track connected users

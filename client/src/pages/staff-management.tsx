@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { Staff } from '@shared/schema';
 import { Badge } from '@/components/ui/badge';
 import io from 'socket.io-client';
+import api from '@/lib/api';
 
 const staffSchema = z.object({
   name: z.string().min(1, 'Staff name is required'),
@@ -106,11 +107,7 @@ const StaffManagement: React.FC = () => {
     // Sync all local staff to server to ensure consistency for logins
     StaffService.getAllStaff().then(allStaff => {
       if (allStaff.length > 0) {
-        fetch('/api/staff', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(allStaff)
-        }).catch(e => console.warn('Background staff sync error:', e));
+        api.post('/api/staff', allStaff).catch(e => console.warn('Background staff sync error:', e));
       }
     });
 
@@ -124,11 +121,8 @@ const StaffManagement: React.FC = () => {
         // Fetch server info to discover the real backend URL
         let socketUrl = window.location.origin;
         try {
-          const res = await fetch('/api/server-info');
-          if (res.ok) {
-            const data = await res.json();
-            socketUrl = data.origin;
-          }
+          const data = await api.get('/api/server-info');
+          socketUrl = data.origin;
         } catch (e) {
           console.warn('Failed to fetch server info, falling back to current origin');
         }
@@ -290,11 +284,7 @@ const StaffManagement: React.FC = () => {
         form.reset();
         // Sync newly created staff to server so other LAN devices can use credentials
         try {
-          await fetch('/api/staff', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify([newStaff])
-          });
+          await api.post('/api/staff', [newStaff]);
         } catch (e) {
           console.warn('Failed to sync new staff to server:', e);
         }
@@ -441,8 +431,7 @@ const StaffManagement: React.FC = () => {
                 <button
                   onClick={async () => {
                     try {
-                      const res = await fetch('/api/server-info');
-                      const d = await res.json();
+                      const d = await api.get('/api/server-info');
                       setServerInfoState(String(d.origin));
                       
                       // Also try to reconnect the socket if it's disconnected

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle, WifiOff } from 'lucide-react';
+import api from '@/lib/api';
 
 interface WiFiStatus {
   connected: boolean;
@@ -22,11 +23,8 @@ export function WiFiIndicator() {
   
   const fetchStatus = async () => {
     try {
-      const response = await fetch('/api/wifi/status');
-      if (response.ok) {
-        const data = await response.json();
-        setStatus(data);
-      }
+      const data = await api.get('/api/wifi/status');
+      setStatus(data);
     } catch (error) {
       console.error('Error fetching WiFi status:', error);
     }

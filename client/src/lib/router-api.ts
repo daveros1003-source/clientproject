@@ -1,5 +1,6 @@
 import { databaseSyncService } from './sync';
 import type { Product } from '@shared/schema';
+import api from './api';
 
 /**
  * RouterAPI class provides methods for interacting with the router's API
@@ -35,17 +36,7 @@ export class RouterAPI {
    */
   static async getAllProducts(): Promise<Product[]> {
     try {
-      const baseUrl = databaseSyncService.getBaseUrl();
-      if (!baseUrl) {
-        return [];
-      }
-
-      const response = await fetch(`${baseUrl}/api/products`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
-      }
-
-      return await response.json();
+      return await api.get('/api/products');
     } catch (error) {
       console.error('Error fetching all products:', error);
       return [];

@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import io from 'socket.io-client';
 import { ProductService } from '@/lib/db';
 import { BrowserMultiFormatReader } from '@zxing/library';
+import api from '@/lib/api';
 
 // Product interface
 interface Product {
@@ -55,15 +56,12 @@ const CustomerScan: React.FC = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await fetch('/api/settings');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.externalScanner) {
-            setScannerSettings({
-              enabled: data.externalScanner.enabled !== false,
-              timeout: data.externalScanner.timeout || 150
-            });
-          }
+        const data = await api.get('/api/settings');
+        if (data.externalScanner) {
+          setScannerSettings({
+            enabled: data.externalScanner.enabled !== false,
+            timeout: data.externalScanner.timeout || 150
+          });
         }
       } catch (err) {
         console.error('Failed to load scanner settings', err);
@@ -87,11 +85,8 @@ const CustomerScan: React.FC = () => {
     const initSocket = async () => {
       let socketUrl = window.location.origin;
       try {
-        const res = await fetch('/api/server-info');
-        if (res.ok) {
-          const data = await res.json();
-          socketUrl = data.origin;
-        }
+        const data = await api.get('/api/server-info');
+        socketUrl = data.origin;
       } catch (e) {
         console.warn('Failed to fetch server info');
       }
@@ -222,65 +217,34 @@ const CustomerScan: React.FC = () => {
     setLoading(true);
     setInventoryUpdated(false);
     try {
-      // Fetch product from local database with cache-busting parameter for real-time data
-      const timestamp = new Date().getTime();
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const primaryUrl = `${origin}/api/products/barcode/${encodeURIComponent(barcode)}?t=${timestamp}`;
-      const fallbackUrl = `http://${host}:5000/api/products/barcode/${encodeURIComponent(barcode)}?t=${timestamp}`;
-      let response: Response;
-      try {
-        response = await fetch(primaryUrl);
-      } catch (e) {
-        response = await fetch(fallbackUrl);
-      }
-      if (response.ok) {
-        const data = await response.json();
-        setProduct(data);
-        setShowProduct(true);
-        
-        // Emit event to notify server that product was viewed
-        if (socketRef.current) {
-          socketRef.current.emit('product-viewed', { barcode });
-        }
-      } else {
-        // Fallback to local DB
-        const localProduct = await ProductService.getProductByBarcode(barcode);
-        if (localProduct) {
-          setProduct({
-            id: localProduct.id,
-            name: localProduct.name,
-            price: localProduct.price,
-            barcode: localProduct.barcode,
-            imageUrl: localProduct.image || undefined,
-            inStock: (localProduct.quantity ?? 0) > 0,
-          });
-          setShowProduct(true);
-        } else {
-          toast({
-            title: "Product Not Found",
-            description: "This product is not in the system.",
-            variant: "destructive",
-          });
-        }
+      // Fetch product from server with cache-busting parameter for real-time data
+      const data = await api.get(`/api/products/barcode/${encodeURIComponent(barcode)}`);
+      setProduct(data);
+      setShowProduct(true);
+      
+      // Emit event to notify server that product was viewed
+      if (socketRef.current) {
+        socketRef.current.emit('product-viewed', { barcode });
       }
     } catch (error) {
-      // Network error - fallback to local DB
+      console.error('API product lookup failed, trying local DB', error);
+      // Fallback to local DB
       const localProduct = await ProductService.getProductByBarcode(barcode);
       if (localProduct) {
         setProduct({
           id: localProduct.id,
           name: localProduct.name,
-          price: localProduct.price,
+          price: Number(localProduct.price),
           barcode: localProduct.barcode,
-          imageUrl: localProduct.image || undefined,
-          inStock: (localProduct.quantity ?? 0) > 0,
+          description: localProduct.description || '',
+          imageUrl: localProduct.image || '',
+          inStock: (localProduct.quantity ?? 0) > 0
         });
         setShowProduct(true);
       } else {
         toast({
-          title: "Error",
-          description: "Failed to look up product. Please try again.",
+          title: "Product Not Found",
+          description: `Barcode: ${barcode}`,
           variant: "destructive",
         });
       }

@@ -20,6 +20,7 @@ import { AuthService, SalesService, StaffService, db } from '@/lib/db';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import api from '@/lib/api';
 
 const profileSchema = z.object({
   businessName: z.string().min(1, 'Business name is required'),
@@ -91,16 +92,13 @@ const ReceiptSettingsCard: React.FC = () => {
     let mounted = true;
     (async () => {
       try {
-        const r = await fetch('/api/settings');
-        if (r.ok) {
-          const data: SettingsResponse = await r.json();
-          if (!mounted) return;
-          const merged: ReceiptSettings = {
-            ...defaultReceiptSettings,
-            ...(data.receipt || {}),
-          };
-          setReceiptSettings(merged);
-        }
+        const data: SettingsResponse = await api.get('/api/settings');
+        if (!mounted) return;
+        const merged: ReceiptSettings = {
+          ...defaultReceiptSettings,
+          ...(data.receipt || {}),
+        };
+        setReceiptSettings(merged);
       } catch {
       } finally {
         if (mounted) setLoading(false);
@@ -114,14 +112,7 @@ const ReceiptSettingsCard: React.FC = () => {
   const saveReceiptSettings = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receipt: receiptSettings }),
-      });
-      if (!res.ok) {
-        throw new Error('Failed to save receipt settings');
-      }
+      await api.put('/api/settings', { receipt: receiptSettings });
       toast({
         title: 'Receipt Settings Saved',
         description: 'Receipt configuration has been updated.',
@@ -139,14 +130,7 @@ const ReceiptSettingsCard: React.FC = () => {
 
   const testPrintReceipt = async () => {
     try {
-      const res = await fetch('/api/print/test-receipt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) {
-        throw new Error('Printer test failed');
-      }
+      await api.post('/api/print/test-receipt', {});
       toast({
         title: 'Test Receipt Sent',
         description: 'Check the server console or printer output.',
@@ -327,16 +311,13 @@ const ExternalScannerSettingsCard: React.FC = () => {
     let mounted = true;
     (async () => {
       try {
-        const r = await fetch('/api/settings');
-        if (r.ok) {
-          const data: SettingsResponse = await r.json();
-          if (!mounted) return;
-          const merged: ExternalScannerSettings = {
-            ...defaultExternalScannerSettings,
-            ...(data.externalScanner || {}),
-          };
-          setSettings(merged);
-        }
+        const data: SettingsResponse = await api.get('/api/settings');
+        if (!mounted) return;
+        const merged: ExternalScannerSettings = {
+          ...defaultExternalScannerSettings,
+          ...(data.externalScanner || {}),
+        };
+        setSettings(merged);
       } catch {
       } finally {
         if (mounted) setLoading(false);
@@ -350,14 +331,7 @@ const ExternalScannerSettingsCard: React.FC = () => {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ externalScanner: settings }),
-      });
-      if (!res.ok) {
-        throw new Error('Failed to save external scanner settings');
-      }
+      await api.put('/api/settings', { externalScanner: settings });
       toast({
         title: 'Scanner Settings Saved',
         description: 'External scanner configuration has been updated.',
@@ -471,18 +445,12 @@ const ProfileSettings: React.FC = () => {
   useEffect(() => {
     const checkWalletStatus = async () => {
       try {
-        const [gcashRes, mayaRes] = await Promise.all([
-          fetch('/api/wallet/gcash/status'),
-          fetch('/api/wallet/maya/status')
+        const [gcashData, mayaData] = await Promise.all([
+          api.get('/api/wallet/gcash/status'),
+          api.get('/api/wallet/maya/status')
         ]);
-        if (gcashRes.ok) {
-          const g = await gcashRes.json();
-          setGcashConnected(!!g.connected);
-        }
-        if (mayaRes.ok) {
-          const m = await mayaRes.json();
-          setMayaConnected(!!m.connected);
-        }
+        setGcashConnected(!!gcashData.connected);
+        setMayaConnected(!!mayaData.connected);
       } catch (e) {
         console.error('Failed to load wallet status', e);
       }
