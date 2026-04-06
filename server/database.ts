@@ -3,27 +3,37 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import type { Staff } from '@shared/schema';
+import { getSupabase } from './supabase';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure data directory exists
-const dataDir = path.resolve(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+// Initialize SQLite only if needed (not on Render in some cases, but for now we keep it)
+let db: any;
+const initSQLite = () => {
+  if (db) return db;
+  const dataDir = path.resolve(__dirname, 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  const dbPath = path.join(dataDir, 'smartpos.db');
+  db = new Database(dbPath);
+  return db;
+};
 
-// Initialize database
-const dbPath = path.join(dataDir, 'smartpos.db');
-const db = new Database(dbPath);
+// Helper to determine if we should use Cloud (Supabase)
+const useCloud = () => {
+  return !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ANON_KEY;
+};
 
 // Database service
 export const dbService = {
   // Initialize tables if they do not exist
-  initSchema: () => {
+  initSchema: async () => {
+    const sqlite = initSQLite();
     // Check for staff table schema mismatch (INTEGER id vs TEXT id)
     try {
-      const staffInfo = db.prepare('PRAGMA table_info(staff)').all() as any[];
+      const staffInfo = sqlite.prepare('PRAGMA table_info(staff)').all() as any[];
       const idCol = staffInfo.find(c => c.name === 'id');
       if (idCol && idCol.type === 'INTEGER') {
         console.log('Migrating staff table from INTEGER id to TEXT id...');
@@ -73,7 +83,7 @@ export const dbService = {
     }
 
     // Create base and ledger tables if they don't exist
-    db.exec(`
+    sqlite.exec(`
       CREATE TABLE IF NOT EXISTS products (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -237,6 +247,31 @@ export const dbService = {
     });
 
     migrate();
+
+    // Sync from Cloud (Supabase) if available to restore from backup
+    if (useCloud()) {
+      console.log('Checking for Cloud Backup in Supabase...');
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          // Restore Products
+          const { data: cloudProducts } = await supabase.from('products').select('*');
+          if (cloudProducts && cloudProducts.length > 0) {
+            dbService.saveProducts(cloudProducts);
+            console.log(`Restored ${cloudProducts.length} products from Cloud.`);
+          }
+          
+          // Restore Staff
+          const { data: cloudStaff } = await supabase.from('staff').select('*');
+          if (cloudStaff && cloudStaff.length > 0) {
+            dbService.saveStaff(cloudStaff);
+            console.log(`Restored ${cloudStaff.length} staff from Cloud.`);
+          }
+        } catch (e) {
+          console.warn('Could not restore from Cloud backup (check table existence):', e);
+        }
+      }
+    }
   },
   // Ledger: Customers
   createCustomer: (input: { id: string; name: string; phone: string; address?: string | null; credit_rating: 'good'|'bad'; photo_url?: string | null; }) => {
@@ -449,6 +484,19 @@ export const dbService = {
     });
     
     insertMany(products);
+    
+    // Mirror to Cloud (Supabase) if available
+    if (useCloud()) {
+      const supabase = getSupabase();
+      if (supabase) {
+        // Upsert to Supabase
+        supabase.from('products').upsert(products).then(({ error }) => {
+          if (error) console.error('Cloud product sync error:', error);
+          else console.log(`Cloud product sync: ${products.length} products updated.`);
+        });
+      }
+    }
+    
     return products;
   },
 
@@ -543,6 +591,18 @@ export const dbService = {
     });
     
     insertMany(staff);
+
+    // Mirror to Cloud (Supabase) if available
+    if (useCloud()) {
+      const supabase = getSupabase();
+      if (supabase) {
+        supabase.from('staff').upsert(staff).then(({ error }) => {
+          if (error) console.error('Cloud staff sync error:', error);
+          else console.log(`Cloud staff sync: ${staff.length} staff updated.`);
+        });
+      }
+    }
+
     return staff;
   },
 

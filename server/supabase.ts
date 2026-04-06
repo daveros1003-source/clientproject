@@ -6,9 +6,24 @@ const anon = process.env.SUPABASE_ANON_KEY || "";
 let client: SupabaseClient | null = null;
 
 export function getSupabase(): SupabaseClient | null {
-  if (!url || !anon) return null;
-  if (!client) client = createClient(url, anon);
-  return client;
+  if (!url || !anon) {
+    console.warn('Supabase credentials missing. Cloud persistence disabled.');
+    return null;
+  }
+  try {
+    if (!client) {
+      client = createClient(url, anon, {
+        auth: {
+          persistSession: false
+        }
+      });
+      console.log('Supabase Cloud Connection Initialized.');
+    }
+    return client;
+  } catch (error) {
+    console.error('Failed to initialize Supabase client:', error);
+    return null;
+  }
 }
 
 export type CloudStaff = {
