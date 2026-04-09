@@ -78,6 +78,7 @@ const InventoryManagement: React.FC = () => {
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [editModeTimerId, setEditModeTimerId] = useState<number | null>(null);
   const [pcsPerBox, setPcsPerBox] = useState(1);
+  const [activeTab, setActiveTab] = useState('inventory');
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(enhancedProductSchema),
@@ -480,163 +481,180 @@ const InventoryManagement: React.FC = () => {
         </div>
 
         <div className="p-4 space-y-4 pb-20">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="Search products..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
-            />
-          </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-white dark:bg-gray-800 border dark:border-gray-700">
+              <TabsTrigger value="inventory" className="data-[state=active]:bg-[#FF8882] data-[state=active]:text-white">
+                Inventory Products
+              </TabsTrigger>
+              <TabsTrigger value="non-inventory" className="data-[state=active]:bg-[#FF8882] data-[state=active]:text-white">
+                Non-Inventory
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Toolbar: Dropdown (left) + Low Stock (right of dropdown) + Edit (far right) */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-nowrap w-full">
-            {/* Left: Category Dropdown + Low Stock Indicator */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-              {/* Category Dropdown */}
-              <div aria-label="Filter by category" className="w-[140px] sm:w-[160px]">
-                <Select onValueChange={setSelectedCategory} defaultValue={selectedCategory}>
-                  <SelectTrigger className="h-9 text-sm border-gray-300 dark:border-gray-600 focus:border-[#FF8882]" aria-label="Category">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <TabsContent value="inventory" className="space-y-4 mt-4">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-white dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600"
+                />
               </div>
-              {/* Low Stock Indicator/Filter */}
-              <Button
-                aria-label="Toggle low stock filter"
-                variant={lowStockOnly ? 'default' : 'outline'}
-                className={`${lowStockOnly ? 'bg-red-500 hover:bg-red-600 text-white' : ''} whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0`}
-                onClick={() => setLowStockOnly((v) => !v)}
-              >
-                Low Stock
-                <span
-                  className={`ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] sm:text-xs ${lowStockOnly ? 'bg-white text-red-600' : 'bg-red-100 text-red-600'}`}
-                  aria-label={`Total low stock items: ${lowStockCount}`}
-                >
-                  {lowStockCount}
-                </span>
-              </Button>
-            </div>
 
-            {/* Far Right: Edit/Delete Toggle Button */}
-            <Button
-              aria-label={selectedProductIds.size > 0 ? 'Delete selected products' : (isEditMode ? 'Cancel edit mode' : 'Enter edit mode')}
-              className="ml-auto bg-pink-500 hover:bg-pink-600 text-white transition-all duration-200 flex-shrink-0 px-3 text-xs sm:text-sm"
-              onClick={() => {
-                if (selectedProductIds.size > 0) {
-                  setBulkDeleteConfirmOpen(true);
-                } else {
-                  setIsEditMode(prev => !prev);
-                  if (!isEditMode) setSelectedProductIds(new Set());
-                }
-              }}
-            >
-              {selectedProductIds.size > 0 ? (
-                <span className="inline-flex items-center"><Trash2 className="w-4 h-4 mr-2" /> Delete</span>
-              ) : (
-                <span className="inline-flex items-center"><Edit className="w-4 h-4 mr-2" /> Edit</span>
-              )}
-            </Button>
-          </div>
-
-          {/* Products Grid */}
-          <div className="space-y-3">
-            {filteredProducts.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <Package className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                <p>No products found</p>
-                <p className="text-sm">Add your first product to get started</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3">
-                {filteredProducts.map((product, index) => {
-                  const stockStatus = getStockStatus(product.quantity);
-                  return (
-                    <motion.div
-                      key={product.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg flex items-center space-x-4 ${isEditMode && selectedProductIds.has(product.id) ? 'ring-2 ring-pink-400' : ''} cursor-pointer hover:shadow-xl`}
-                      onClick={() => setLocation(`/inventory/product/${product.id}`)}
+              {/* Toolbar: Dropdown (left) + Low Stock (right of dropdown) + Edit (far right) */}
+              <div className="flex items-center gap-2 sm:gap-3 flex-nowrap w-full">
+                {/* Left: Category Dropdown + Low Stock Indicator */}
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  {/* Category Dropdown */}
+                  <div aria-label="Filter by category" className="w-[140px] sm:w-[160px]">
+                    <Select onValueChange={setSelectedCategory} defaultValue={selectedCategory}>
+                      <SelectTrigger className="h-9 text-sm border-gray-300 dark:border-gray-600 focus:border-[#FF8882]" aria-label="Category">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Low Stock Indicator/Filter */}
+                  <Button
+                    aria-label="Toggle low stock filter"
+                    variant={lowStockOnly ? 'default' : 'outline'}
+                    className={`${lowStockOnly ? 'bg-red-500 hover:bg-red-600 text-white' : ''} whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3 flex-shrink-0`}
+                    onClick={() => setLowStockOnly((v) => !v)}
+                  >
+                    Low Stock
+                    <span
+                      className={`ml-2 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] sm:text-xs ${lowStockOnly ? 'bg-white text-red-600' : 'bg-red-100 text-red-600'}`}
+                      aria-label={`Total low stock items: ${lowStockCount}`}
                     >
-                      {isEditMode && (
-                        <input
-                          type="checkbox"
-                          aria-label={`Select ${product.name}`}
-                          checked={selectedProductIds.has(product.id)}
-                          onChange={() => toggleSelectProduct(product.id)}
-                          className="h-5 w-5 accent-pink-500"
-                        />
-                      )}
-                      {/* Product Image */}
-                      <div className="flex-shrink-0">
-                        {product.image ? (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-16 h-16 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                            <ImageIcon className="w-8 h-8 text-gray-400 dark:text-gray-500" />
-                          </div>
-                        )}
-                      </div>
+                      {lowStockCount}
+                    </span>
+                  </Button>
+                </div>
 
-                      {/* Product Details */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-800 dark:text-gray-200 truncate">{product.name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Barcode: {product.barcode}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Category: {product.category || 'general'}</p>
-                        <p className="text-[#FF8882] font-medium">₱{product.price.toFixed(2)}</p>
-                        {product.quantity <= 10 && (
-                          <p className="text-xs text-red-500 inline-flex items-center"><AlertTriangle className="w-3 h-3 mr-1" />Low stock</p>
-                        )}
-                      </div>
-
-                      {/* Stock and Actions */}
-                      <div className="text-right">
-                        <div className={`text-lg font-bold ${stockStatus.color}`}>
-                          {product.quantity}
-                        </div>
-                        <div className={`text-xs ${stockStatus.color}`}>
-                          {stockStatus.label}
-                        </div>
-                        <div className="flex gap-2 mt-2">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleEdit(product); }}
-                            className="text-primary-500 dark:text-primary-400 p-1 touch-feedback"
-                            aria-label={`Edit ${product.name}`}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          {isAdmin && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setDeletingProduct(product); }}
-                              className="text-red-500 dark:text-red-400 p-1 touch-feedback"
-                              title="Delete product (Admin only)"
-                              aria-label={`Delete ${product.name}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                {/* Far Right: Edit/Delete Toggle Button */}
+                <Button
+                  aria-label={selectedProductIds.size > 0 ? 'Delete selected products' : (isEditMode ? 'Cancel edit mode' : 'Enter edit mode')}
+                  className="ml-auto bg-pink-500 hover:bg-pink-600 text-white transition-all duration-200 flex-shrink-0 px-3 text-xs sm:text-sm"
+                  onClick={() => {
+                    if (selectedProductIds.size > 0) {
+                      setBulkDeleteConfirmOpen(true);
+                    } else {
+                      setIsEditMode(prev => !prev);
+                      if (!isEditMode) setSelectedProductIds(new Set());
+                    }
+                  }}
+                >
+                  {selectedProductIds.size > 0 ? (
+                    <span className="inline-flex items-center"><Trash2 className="w-4 h-4 mr-2" /> Delete</span>
+                  ) : (
+                    <span className="inline-flex items-center"><Edit className="w-4 h-4 mr-2" /> Edit</span>
+                  )}
+                </Button>
               </div>
-            )}
-          </div>
+
+              {/* Products Grid */}
+              <div className="space-y-3">
+                {filteredProducts.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    <Package className="w-12 h-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
+                    <p>No products found</p>
+                    <p className="text-sm">Add your first product to get started</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3">
+                    {filteredProducts.map((product, index) => {
+                      const stockStatus = getStockStatus(product.quantity);
+                      return (
+                        <motion.div
+                          key={product.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className={`bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg flex items-center space-x-4 ${isEditMode && selectedProductIds.has(product.id) ? 'ring-2 ring-pink-400' : ''} cursor-pointer hover:shadow-xl`}
+                          onClick={() => setLocation(`/inventory/product/${product.id}`)}
+                        >
+                          {isEditMode && (
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${product.name}`}
+                              checked={selectedProductIds.has(product.id)}
+                              onChange={() => toggleSelectProduct(product.id)}
+                              className="h-5 w-5 accent-pink-500"
+                            />
+                          )}
+                          {/* Product Image */}
+                          <div className="flex-shrink-0">
+                            {product.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-16 h-16 rounded-lg object-cover"
+                              />
+                            ) : (
+                              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                <ImageIcon className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Product Details */}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-gray-800 dark:text-gray-200 truncate">{product.name}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Barcode: {product.barcode}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Category: {product.category || 'general'}</p>
+                            <p className="text-[#FF8882] font-medium">₱{product.price.toFixed(2)}</p>
+                            {product.quantity <= 10 && (
+                              <p className="text-xs text-red-500 inline-flex items-center"><AlertTriangle className="w-3 h-3 mr-1" />Low stock</p>
+                            )}
+                          </div>
+
+                          {/* Stock and Actions */}
+                          <div className="text-right">
+                            <div className={`text-lg font-bold ${stockStatus.color}`}>
+                              {product.quantity}
+                            </div>
+                            <div className={`text-xs ${stockStatus.color}`}>
+                              {stockStatus.label}
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleEdit(product); }}
+                                className="text-primary-500 dark:text-primary-400 p-1 touch-feedback"
+                                aria-label={`Edit ${product.name}`}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setDeletingProduct(product); }}
+                                  className="text-red-500 dark:text-red-400 p-1 touch-feedback"
+                                  title="Delete product (Admin only)"
+                                  aria-label={`Delete ${product.name}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="non-inventory" className="mt-4">
+              <NonInventoryProducts />
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Bulk Delete Confirmation */}
@@ -700,6 +718,17 @@ const InventoryManagement: React.FC = () => {
                   >
                     <Tag className="w-5 h-5 text-pink-500" />
                     <span className="text-gray-700 dark:text-gray-200">Create Category</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('non-inventory');
+                      setIsFabExpanded(false);
+                    }}
+                    className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg w-full text-left border-t dark:border-gray-700"
+                  >
+                    <Package className="w-5 h-5 text-orange-500" />
+                    <span className="text-gray-700 dark:text-gray-200">Non-Inventory</span>
                   </button>
                 </motion.div>
               </>
