@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ExternalDeviceManager from '@/components/ExternalDeviceManager';
 import { useToast } from '@/hooks/use-toast';
 import api from '@/lib/api';
 
@@ -110,177 +112,201 @@ export default function AdminSettings() {
     <Layout>
       <div className="p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-gray-800">Admin Settings</h1>
+          <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Admin Settings</h1>
         </div>
 
-        <Card className="p-4 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">Receipt Configuration</h2>
-            <p className="text-sm text-gray-500">
-              Customize how receipts look when printing from the scanner and sales screen.
-            </p>
-          </div>
+        <Tabs defaultValue="receipt" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 bg-white dark:bg-gray-800 border dark:border-gray-700 mb-4">
+            <TabsTrigger value="receipt" className="data-[state=active]:bg-[#FF8882] data-[state=active]:text-white">
+              Receipt Configuration
+            </TabsTrigger>
+            <TabsTrigger value="devices" className="data-[state=active]:bg-[#FF8882] data-[state=active]:text-white">
+              External Devices
+            </TabsTrigger>
+          </TabsList>
 
-          {loading ? (
-            <div className="text-sm text-gray-500">Loading settings…</div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="storeName">Store Name</Label>
-                  <Input
-                    id="storeName"
-                    value={receiptSettings.storeName}
-                    onChange={(e) =>
-                      setReceiptSettings((s) => ({ ...s, storeName: e.target.value }))
-                    }
-                    placeholder="SmartPOS+ Store"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="storePhone">Store Phone</Label>
-                  <Input
-                    id="storePhone"
-                    value={receiptSettings.storePhone}
-                    onChange={(e) =>
-                      setReceiptSettings((s) => ({ ...s, storePhone: e.target.value }))
-                    }
-                    placeholder="+63 900 000 0000"
-                  />
-                </div>
+          <TabsContent value="receipt">
+            <Card className="p-4 space-y-4 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Receipt Configuration</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Customize how receipts look when printing from the scanner and sales screen.
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="storeAddress">Store Address</Label>
-                <Textarea
-                  id="storeAddress"
-                  value={receiptSettings.storeAddress}
-                  onChange={(e) =>
-                    setReceiptSettings((s) => ({ ...s, storeAddress: e.target.value }))
-                  }
-                  placeholder="Street, City, Province, ZIP"
-                  rows={2}
-                />
-              </div>
+              {loading ? (
+                <div className="text-sm text-gray-500">Loading settings…</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="storeName" className="dark:text-gray-300">Store Name</Label>
+                      <Input
+                        id="storeName"
+                        value={receiptSettings.storeName}
+                        onChange={(e) =>
+                          setReceiptSettings((s) => ({ ...s, storeName: e.target.value }))
+                        }
+                        placeholder="SmartPOS+ Store"
+                        className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="storePhone" className="dark:text-gray-300">Store Phone</Label>
+                      <Input
+                        id="storePhone"
+                        value={receiptSettings.storePhone}
+                        onChange={(e) =>
+                          setReceiptSettings((s) => ({ ...s, storePhone: e.target.value }))
+                        }
+                        placeholder="+63 900 000 0000"
+                        className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="headerNote">Header Note</Label>
-                  <Textarea
-                    id="headerNote"
-                    value={receiptSettings.headerNote}
-                    onChange={(e) =>
-                      setReceiptSettings((s) => ({ ...s, headerNote: e.target.value }))
-                    }
-                    rows={2}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="footerNote">Footer Note</Label>
-                  <Textarea
-                    id="footerNote"
-                    value={receiptSettings.footerNote}
-                    onChange={(e) =>
-                      setReceiptSettings((s) => ({ ...s, footerNote: e.target.value }))
-                    }
-                    rows={2}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="printerDeviceName">Printer Name</Label>
-                  <Input
-                    id="printerDeviceName"
-                    value={receiptSettings.printerDeviceName}
-                    onChange={(e) =>
-                      setReceiptSettings((s) => ({ ...s, printerDeviceName: e.target.value }))
-                    }
-                    placeholder="Leave empty for system default"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Optional. Use the exact printer name from your system.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Paper Width</Label>
-                  <Select
-                    value={receiptSettings.paperWidth}
-                    onValueChange={(value: '58mm' | '80mm') =>
-                      setReceiptSettings((s) => ({ ...s, paperWidth: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="58mm">58mm</SelectItem>
-                      <SelectItem value="80mm">80mm</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Auto Print on Sale</Label>
-                  <div className="flex items-center justify-between rounded-lg border px-3 py-2">
-                    <span className="text-sm text-gray-700">Automatically print after confirm</span>
-                    <Switch
-                      checked={receiptSettings.autoPrintOnSale}
-                      onCheckedChange={(checked) =>
-                        setReceiptSettings((s) => ({ ...s, autoPrintOnSale: checked }))
+                  <div className="space-y-2">
+                    <Label htmlFor="storeAddress" className="dark:text-gray-300">Store Address</Label>
+                    <Textarea
+                      id="storeAddress"
+                      value={receiptSettings.storeAddress}
+                      onChange={(e) =>
+                        setReceiptSettings((s) => ({ ...s, storeAddress: e.target.value }))
                       }
+                      placeholder="Street, City, Province, ZIP"
+                      rows={2}
+                      className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center justify-between rounded-lg border px-3 py-2">
-                  <div>
-                    <div className="text-sm font-medium text-gray-800">Show Date & Time</div>
-                    <div className="text-xs text-gray-500">
-                      Include transaction timestamp on receipt.
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="headerNote" className="dark:text-gray-300">Header Note</Label>
+                      <Textarea
+                        id="headerNote"
+                        value={receiptSettings.headerNote}
+                        onChange={(e) =>
+                          setReceiptSettings((s) => ({ ...s, headerNote: e.target.value }))
+                        }
+                        rows={2}
+                        className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="footerNote" className="dark:text-gray-300">Footer Note</Label>
+                      <Textarea
+                        id="footerNote"
+                        value={receiptSettings.footerNote}
+                        onChange={(e) =>
+                          setReceiptSettings((s) => ({ ...s, footerNote: e.target.value }))
+                        }
+                        rows={2}
+                        className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
                     </div>
                   </div>
-                  <Switch
-                    checked={receiptSettings.showDateTime}
-                    onCheckedChange={(checked) =>
-                      setReceiptSettings((s) => ({ ...s, showDateTime: checked }))
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between rounded-lg border px-3 py-2">
-                  <div>
-                    <div className="text-sm font-medium text-gray-800">Show Staff Name</div>
-                    <div className="text-xs text-gray-500">
-                      Print the staff name who processed the sale.
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="printerDeviceName" className="dark:text-gray-300">Printer Name</Label>
+                      <Input
+                        id="printerDeviceName"
+                        value={receiptSettings.printerDeviceName}
+                        onChange={(e) =>
+                          setReceiptSettings((s) => ({ ...s, printerDeviceName: e.target.value }))
+                        }
+                        placeholder="Leave empty for system default"
+                        className="dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Optional. Use the exact printer name from your system.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="dark:text-gray-300">Paper Width</Label>
+                      <Select
+                        value={receiptSettings.paperWidth}
+                        onValueChange={(value: '58mm' | '80mm') =>
+                          setReceiptSettings((s) => ({ ...s, paperWidth: value }))
+                        }
+                      >
+                        <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="dark:bg-gray-800 dark:border-gray-700">
+                          <SelectItem value="58mm" className="dark:text-white">58mm</SelectItem>
+                          <SelectItem value="80mm" className="dark:text-white">80mm</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="dark:text-gray-300">Auto Print on Sale</Label>
+                      <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 px-3 py-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Automatically print after confirm</span>
+                        <Switch
+                          checked={receiptSettings.autoPrintOnSale}
+                          onCheckedChange={(checked) =>
+                            setReceiptSettings((s) => ({ ...s, autoPrintOnSale: checked }))
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
-                  <Switch
-                    checked={receiptSettings.showStaffName}
-                    onCheckedChange={(checked) =>
-                      setReceiptSettings((s) => ({ ...s, showStaffName: checked }))
-                    }
-                  />
-                </div>
-              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleTestPrint}
-                  disabled={saving}
-                >
-                  Print Test Receipt
-                </Button>
-                <Button type="button" onClick={handleSave} disabled={saving}>
-                  {saving ? 'Saving…' : 'Save Settings'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </Card>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 px-3 py-2">
+                      <div>
+                        <div className="text-sm font-medium text-gray-800 dark:text-white">Show Date & Time</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Include transaction timestamp on receipt.
+                        </div>
+                      </div>
+                      <Switch
+                        checked={receiptSettings.showDateTime}
+                        onCheckedChange={(checked) =>
+                          setReceiptSettings((s) => ({ ...s, showDateTime: checked }))
+                        }
+                      />
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 px-3 py-2">
+                      <div>
+                        <div className="text-sm font-medium text-gray-800 dark:text-white">Show Staff Name</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Print the staff name who processed the sale.
+                        </div>
+                      </div>
+                      <Switch
+                        checked={receiptSettings.showStaffName}
+                        onCheckedChange={(checked) =>
+                          setReceiptSettings((s) => ({ ...s, showStaffName: checked }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleTestPrint}
+                      disabled={saving}
+                      className="dark:text-white dark:border-gray-600"
+                    >
+                      Print Test Receipt
+                    </Button>
+                    <Button type="button" onClick={handleSave} disabled={saving} className="bg-[#FF8882] hover:bg-[#FF7770] text-white">
+                      {saving ? 'Saving…' : 'Save Settings'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="devices">
+            <ExternalDeviceManager />
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

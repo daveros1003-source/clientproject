@@ -1,7 +1,7 @@
 import Dexie, { Table } from 'dexie';
 import bcrypt from 'bcryptjs';
 import type {
-    User, Product, Sale, Staff, CartItem, SaleItem, Expense, Purchase, Creditor, Variant
+    User, Product, Sale, Staff, CartItem, SaleItem, Expense, Purchase, Creditor, Variant, NonInventoryProduct
 } from '@shared/schema';
 import { getUnitMultiplier } from './utils';
 import api from './api';
@@ -52,6 +52,7 @@ export class SmartPOSDB extends Dexie {
   purchases!: Table<Purchase>;
   creditors!: Table<Creditor>;
   variants!: Table<Variant>;
+  nonInventoryProducts!: Table<NonInventoryProduct>;
 
   constructor() {
     super('SmartPOSDB');
@@ -75,6 +76,7 @@ export class SmartPOSDB extends Dexie {
       purchases: 'id, productName, date, supplier',
       creditors: 'id, name, dueDate, isPaid',
       variants: 'id, productId, name, barcode',
+      nonInventoryProducts: 'id, &barcode, name, category',
     });
   }
 
@@ -405,6 +407,7 @@ export class ProductService {
     cost?: number;
     quantity: number;
     category?: string;
+    description?: string;
     image?: string;
   }): Promise<Product> {
     // Check if product with same barcode already exists
@@ -430,6 +433,7 @@ export class ProductService {
       cost: productData.cost ? Math.round(productData.cost * 100) / 100 : 0,
       quantity: Math.floor(productData.quantity), // Ensure integer
       category: productData.category?.trim() || 'general',
+      description: productData.description?.trim() || null,
       image: productData.image || null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -546,6 +550,84 @@ export class ProductService {
       await ProductService.syncVariantsToServer();
     } catch (e) {
       console.error('Failed to sync variant update', e);
+    }
+  }
+}
+
+// Non-inventory product service
+export class NonInventoryProductService {
+  static async getAllNonInventoryProducts(): Promise<NonInventoryProduct[]> {
+    return await db.nonInventoryProducts.toArray();
+  }
+
+  static async getNonInventoryProductById(id: string): Promise<NonInventoryProduct | undefined> {
+    return await db.nonInventoryProducts.get(id);
+  }
+
+  static async addNonInventoryProduct(productData: {
+    name: string;
+    price: number;
+    category?: string;
+    description?: string;
+    image?: string;
+    barcode: string;
+    barcodeData?: string;
+  }): Promise<NonInventoryProduct> {
+    const existing = await db.nonInventoryProducts.where('barcode').equals(productData.barcode).first();
+    if (existing) throw new Error('Product with this barcode already exists');
+
+    const product: NonInventoryProduct = {
+      id: generateUUID(),
+      name: productData.name.trim(),
+      price: Math.round(productData.price * 100) / 100,
+      category: productData.category?.trim() || 'general',
+      description: productData.description?.trim() || null,
+      image: productData.image || null,
+      barcode: productData.barcode,
+      barcodeData: productData.barcodeData || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    await db.nonInventoryProducts.add(product);
+    
+    // Sync to server
+    try {
+      await api.post('/api/non-inventory-products', [product]);
+    } catch (e) {
+      console.warn('Failed to sync non-inventory product to server:', e);
+    }
+    
+    return product;
+  }
+
+  static async updateNonInventoryProduct(id: string, updates: Partial<NonInventoryProduct>): Promise<void> {
+    const cleanUpdates = { ...updates, updatedAt: new Date() };
+    await db.nonInventoryProducts.update(id, cleanUpdates);
+    
+    // Sync to server
+    try {
+      const updated = await db.nonInventoryProducts.get(id);
+      if (updated) await api.post('/api/non-inventory-products', [updated]);
+    } catch (e) {
+      console.warn('Failed to sync non-inventory product update to server:', e);
+    }
+  }
+
+  static async deleteNonInventoryProduct(id: string): Promise<void> {
+    await db.nonInventoryProducts.delete(id);
+    // Notify server (optional, or rely on full sync)
+  }
+  
+  static async syncAllNonInventoryProductsToServer(): Promise<boolean> {
+    try {
+      const products = await db.nonInventoryProducts.toArray();
+      if (products.length === 0) return true;
+      await api.post('/api/non-inventory-products', products);
+      return true;
+    } catch (e) {
+      console.error('Error syncing non-inventory products:', e);
+      return false;
     }
   }
 }

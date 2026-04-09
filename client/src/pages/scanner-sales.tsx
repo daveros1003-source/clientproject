@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useDragControls, PanInfo } from 'framer-motion';
-import { Home, Trash2, CreditCard, AlertTriangle, LogOut, Search, ArrowLeft, Edit } from 'lucide-react';
+import { Home, Trash2, CreditCard, AlertTriangle, LogOut, Search, ArrowLeft, Edit, Usb, Bluetooth } from 'lucide-react';
 import { useLocation } from 'wouter';
 import Layout from '@/components/Layout';
 import Scanner from '@/components/Scanner';
@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
+import { useDevices } from '@/contexts/DeviceContext';
 import { useToast } from '@/hooks/use-toast';
 import { ProductService, SalesService, AuthService, db, CreditorService } from '@/lib/db';
 import type { CartItem } from '@shared/schema';
@@ -45,6 +46,7 @@ const ScannerSales: React.FC = () => {
   const [, setLocation] = useLocation();
   const { user, isAdmin, isStaff, logout } = useAuth();
   const { cart, addToCart, removeFromCart, updateCartItem, clearCart, getCartTotal } = useApp();
+  const { connectedDevices, printToThermalPrinter } = useDevices();
   const { toast } = useToast();
   const dragControls = useDragControls();
   
@@ -521,6 +523,32 @@ const ScannerSales: React.FC = () => {
           : 0;
 
       if (paymentType !== 'credits') {
+        // Prepare receipt content
+        const receiptItems = cart.map(item => `${item.name}\n${item.quantity} ${item.unit} x ₱${item.price.toFixed(2)}   ₱${item.subtotal.toFixed(2)}`).join('\n');
+        const receiptContent = `
+SMARTPOS+ STORE
+${new Date(sale?.createdAt || new Date()).toLocaleString()}
+--------------------------------
+${receiptItems}
+--------------------------------
+TOTAL                 ₱${total.toFixed(2)}
+${paymentType.toUpperCase().padEnd(9)}        ₱${effectivePaymentAmount.toFixed(2)}
+CHANGE                ₱${change.toFixed(2)}
+--------------------------------
+Thank you for your purchase!
+`;
+
+        // 1. Try Client-side Printing (Web USB/Bluetooth)
+        const printer = connectedDevices.find(d => d.type === 'printer');
+        if (printer) {
+          try {
+            await printToThermalPrinter(receiptContent);
+          } catch (e) {
+            console.error('Client-side printing failed:', e);
+          }
+        }
+
+        // 2. Fallback to Server-side Printing (for system printers)
         try {
           await api.post('/api/print/sale', {
             items: cart,
@@ -528,11 +556,11 @@ const ScannerSales: React.FC = () => {
             paymentType,
             paymentAmount: effectivePaymentAmount,
             change,
-            staffName: user?.name || null,
+            staffName: user?.ownerName || user?.username || null,
             createdAt: sale?.createdAt || new Date().toISOString(),
           });
         } catch (e) {
-          console.error('Failed to send receipt to printer:', e);
+          console.error('Failed to send receipt to server printer:', e);
         }
       }
 
@@ -570,7 +598,19 @@ const ScannerSales: React.FC = () => {
         {/* Header */}
         <div className="text-gray-800 p-4 flex-1 min-h-0 flex flex-col">
           <div className="flex justify-between items-center mb-4 flex-none">
-            <h2 className="text-lg font-semibold">Scanner & Sales</h2>
+            <div className="flex flex-col">
+              <h2 className="text-lg font-semibold">Scanner & Sales</h2>
+              {connectedDevices.length > 0 && (
+                <div className="flex gap-2 mt-1">
+                  {connectedDevices.map(d => (
+                    <div key={d.id} className="flex items-center gap-1 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full uppercase font-bold">
+                      {d.connection === 'usb' ? <Usb className="w-2.5 h-2.5" /> : <Bluetooth className="w-2.5 h-2.5" />}
+                      {d.type}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               onClick={() => {
                 if (isStaff) {

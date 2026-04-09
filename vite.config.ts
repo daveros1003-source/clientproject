@@ -53,6 +53,9 @@ export default defineConfig(async () => ({
   },
   server: {
     host: true,
+    hmr: {
+      overlay: false,
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],

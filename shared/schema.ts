@@ -28,6 +28,7 @@ export const products = sqliteTable("products", {
   cost: real("cost").default(0),
   quantity: integer("quantity").notNull().default(0),
   category: text("category").default("general"),
+  description: text("description"),
   image: text("image"), // Base64 encoded image or URL
   createdAt: integer("created_at", { mode: 'timestamp' }).default(new Date()),
   updatedAt: integer("updated_at", { mode: 'timestamp' }).default(new Date()),
@@ -101,6 +102,20 @@ export const purchases = sqliteTable("purchases", {
     expirationDate: integer("expiration_date", { mode: 'timestamp' }),
 });
 
+// Non-inventory products table
+export const nonInventoryProducts = sqliteTable("non_inventory_products", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  price: real("price").notNull(),
+  category: text("category").default("general"),
+  description: text("description"),
+  image: text("image"), // Base64 encoded image or URL
+  barcode: text("barcode").notNull().unique(),
+  barcodeData: text("barcode_data"), // SVG or Base64 barcode image
+  createdAt: integer("created_at", { mode: 'timestamp' }).default(new Date()),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).default(new Date()),
+});
+
 // Creditors table
 export const creditors = sqliteTable("creditors", {
     id: text("id").primaryKey(),
@@ -130,6 +145,7 @@ export const insertProductSchema = createInsertSchema(products).pick({
   price: true,
   quantity: true,
   category: true,
+  description: true,
   image: true,
 });
 
@@ -152,6 +168,16 @@ export const insertStaffSchema = createInsertSchema(staff).pick({
 export const insertExpenseSchema = createInsertSchema(expenses);
 export const insertPurchaseSchema = createInsertSchema(purchases);
 export const insertCreditorSchema = createInsertSchema(creditors);
+export const insertNonInventoryProductSchema = createInsertSchema(nonInventoryProducts).pick({
+  name: true,
+  price: true,
+  category: true,
+  description: true,
+  image: true,
+  barcode: true,
+  barcodeData: true,
+});
+
 export const insertVariantSchema = createInsertSchema(variants).pick({
   productId: true,
   name: true,
@@ -180,6 +206,8 @@ export type InsertPurchase = z.infer<typeof insertPurchaseSchema>;
 export type Purchase = typeof purchases.$inferSelect;
 export type InsertCreditor = z.infer<typeof insertCreditorSchema>;
 export type Creditor = typeof creditors.$inferSelect;
+export type NonInventoryProduct = typeof nonInventoryProducts.$inferSelect;
+export type InsertNonInventoryProduct = z.infer<typeof insertNonInventoryProductSchema>;
 
 
 // Cart item type for sales

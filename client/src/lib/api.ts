@@ -1,9 +1,9 @@
 const getBaseUrl = () => {
-  if (import.meta.env.PROD) {
-    // In production, always use the Render backend URL
+  if (import.meta.env.PROD && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    // In production (not local), use the Render backend URL
     return 'https://smartposv4.onrender.com';
   } else {
-    // In development, use the current origin which will be proxied by Vite
+    // In development or local production, use the current origin
     return window.location.origin;
   }
 };

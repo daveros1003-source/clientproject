@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import BarcodeScannerButton from '@/components/BarcodeScannerButton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import NonInventoryProducts from '@/components/NonInventoryProducts';
 import type { Product } from '@shared/schema';
 
 const productSchema = z.object({

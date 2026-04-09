@@ -187,6 +187,19 @@ export const dbService = {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS non_inventory_products (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        price REAL NOT NULL,
+        category TEXT,
+        description TEXT,
+        image TEXT,
+        barcode TEXT UNIQUE NOT NULL,
+        barcode_data TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      );
     `);
 
     // Perform lightweight migrations for missing columns
@@ -411,6 +424,7 @@ export const dbService = {
     const row = db.prepare(`SELECT COALESCE(SUM(amount),0) AS total FROM payments`).get() as any;
     return row?.total ?? 0;
   },
+
   // Reminders
   addReminder: (input: { id: string; customer_id: string; message_type: string; message: string; status: string; created_at?: string }) => {
     const created = input.created_at ?? new Date().toISOString();
@@ -473,6 +487,51 @@ export const dbService = {
     return db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   },
 
+  // Non-inventory product methods
+  getNonInventoryProducts: () => {
+    return db.prepare('SELECT * FROM non_inventory_products').all();
+  },
+
+  getNonInventoryProductByBarcode: (barcode: string) => {
+    return db.prepare('SELECT * FROM non_inventory_products WHERE barcode = ?').get(barcode);
+  },
+
+  saveNonInventoryProducts: (products: any[]) => {
+    const insert = db.prepare(`
+      INSERT OR REPLACE INTO non_inventory_products 
+      (id, name, price, category, description, image, barcode, barcode_data, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    
+    const insertMany = db.transaction((products: any[]) => {
+      for (const product of products) {
+        try {
+          insert.run(
+            product.id,
+            product.name,
+            product.price,
+            product.category || 'general',
+            product.description || null,
+            product.image || null,
+            product.barcode,
+            product.barcodeData || product.barcode_data || null,
+            product.createdAt || new Date().toISOString(),
+            product.updatedAt || new Date().toISOString()
+          );
+        } catch (e) {
+          console.error('Failed to upsert non-inventory product', product?.barcode, e);
+        }
+      }
+    });
+    
+    insertMany(products);
+    return products;
+  },
+
+  deleteNonInventoryProduct: (id: string) => {
+    return db.prepare('DELETE FROM non_inventory_products WHERE id = ?').run(id);
+  },
+
   // Clear all table data (products, staff)
   clearAllData: () => {
     const delProducts = db.prepare('DELETE FROM products').run();
@@ -489,6 +548,14 @@ export const dbService = {
 
   getProductByBarcode: (barcode: string) => {
     return db.prepare('SELECT * FROM products WHERE barcode = ?').get(barcode);
+  },
+
+  getProductById: (id: string) => {
+    return db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+  },
+
+  updateStock: (id: string, quantity: number) => {
+    return db.prepare('UPDATE products SET quantity = ?, updatedAt = ? WHERE id = ?').run(quantity, new Date().toISOString(), id);
   },
 
   saveProducts: (products: any[]) => {
@@ -567,6 +634,23 @@ export const dbService = {
       createdAt: r.created_at,
       updatedAt: r.updated_at
     }));
+  },
+
+  getVariantById: (id: string) => {
+    const r = db.prepare('SELECT * FROM variants WHERE id = ?').get(id) as any;
+    if (!r) return undefined;
+    return {
+      id: r.id,
+      productId: r.product_id,
+      name: r.name,
+      barcode: r.barcode,
+      price: r.price,
+      cost: r.cost,
+      image: r.image,
+      quantity: r.quantity,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    };
   },
 
   getAllVariants: () => {

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AppProvider } from "@/contexts/AppContext";
+import { DeviceProvider } from "@/contexts/DeviceContext";
 import { queryClient } from "./lib/queryClient";
 import { ProductService } from "@/lib/db";
 
@@ -109,8 +110,10 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           <AppProvider>
-            <Toaster />
-            <Router />
+            <DeviceProvider>
+              <Toaster />
+              <Router />
+            </DeviceProvider>
           </AppProvider>
         </AuthProvider>
       </TooltipProvider>

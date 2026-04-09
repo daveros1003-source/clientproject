@@ -35,10 +35,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(express.json());
 
   // Health check for Render
-  app.get("/", (req, res) => {
-    res.send("SmartPOS+ Backend is Running...");
-  });
-
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
@@ -385,6 +381,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Non-inventory products API
+  app.get('/api/non-inventory-products', (req: Request, res: Response) => {
+    try {
+      const products = dbService.getNonInventoryProducts();
+      res.status(200).json(products);
+    } catch (error) {
+      console.error('Error fetching non-inventory products:', error);
+      res.status(500).json({ error: 'Failed to fetch non-inventory products' });
+    }
+  });
+
+  app.post('/api/non-inventory-products', (req: Request, res: Response) => {
+    try {
+      const products = Array.isArray(req.body) ? req.body : [req.body];
+      dbService.saveNonInventoryProducts(products);
+      res.status(200).json({ message: 'Non-inventory products saved successfully' });
+    } catch (error) {
+      console.error('Error saving non-inventory products:', error);
+      res.status(500).json({ error: 'Failed to save non-inventory products' });
+    }
+  });
+
+  app.delete('/api/non-inventory-products/:id', (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      dbService.deleteNonInventoryProduct(id);
+      res.status(200).json({ message: 'Non-inventory product deleted' });
+    } catch (error) {
+      console.error('Error deleting non-inventory product:', error);
+      res.status(500).json({ error: 'Failed to delete non-inventory product' });
+    }
+  });
+
   // Specific endpoint for barcode scanning from customer page
   app.get('/api/products/barcode/:barcode', (req: Request, res: Response) => {
     try {
